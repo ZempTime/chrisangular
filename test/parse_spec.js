@@ -123,4 +123,10 @@ describe('parse', function() {
     expect(fn()).toEqual({a: 1, b: [2, 3], c: {d: 4}});
   });
 
+  it('looks up an attribute on a scope', function() {
+    var fn = pasre('aKey');
+    expect(fn({aKey: 42})).toBe(42);
+    expect(fn({})).toBeUndefined();
+  });
+
 });
