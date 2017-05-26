@@ -244,7 +244,7 @@ describe('parse', function() {
     expect(fn({
       n: 3,
       argFn: _.constant(2),
-      aFunction: function(a1, a2, a3) { return a1 + a2 + a3 }
+      aFunction: function(a1, a2, a3) { return a1 + a2 + a3; }
     })).toBe(42);
   });
 
@@ -450,4 +450,97 @@ describe('parse', function() {
     var fn = parse('fun.apply(obj)');
     expect(function() { fn({fun: function() {}, obj: {}}); }).toThrow();
   });
+
+  it('parses a unary +', function() {
+    expect(parse('+42')()).toBe(42);
+    expect(parse('+a')({a: 42})).toBe(42);
+  });
+
+  it('replaces undefined with zero for unary +', function() {
+    expect(parse('+a')({})).toBe(0);
+  });
+
+  it('parses a unary !', function() {
+    expect(parse('!true')()).toBe(false);
+    expect(parse('!42')()).toBe(false);
+    expect(parse('!a')({a: false})).toBe(true);
+    expect(parse('!!a')({a: false})).toBe(false);
+  });
+
+  it('parses a unary -', function() {
+    expect(parse('-42')()).toBe(-42);
+    expect(parse('-a')({a: -42})).toBe(42);
+    expect(parse('--a')({a: -42})).toBe(-42);
+    expect(parse('-a')({})).toBe(0);
+  });
+
+  it('parses a ! in a string', function() {
+    expect(parse('"!"')()).toBe('!');
+  });
+
+  it('parses a multiplication', function() {
+    expect(parse('21 * 2')()).toBe(42);
+  });
+
+  it('parses a division', function() {
+    expect(parse('84 / 2')()).toBe(42);
+  });
+
+  it('parses a reminder', function() {
+    expect(parse('85 % 43')()).toBe(42);
+  });
+
+  it('parses several multiplicatives', function() {
+    expect(parse('36 * 2 % 5')()).toBe(2);
+  });
+
+  it('parses an addition', function() {
+    expect(parse('20 + 22')()).toBe(42);
+  });
+
+  it('parses a subtraction', function() {
+    expect(parse('42 - 22')()).toBe(20);
+  });
+
+  it('parses multiplicatives on a higher precedence than additives', function() {
+    expect(parse('2 + 3 * 5')()).toBe(17);
+    expect(parse('2 + 3 * 2 + 3')()).toBe(11);
+  });
+
+  it('substitutes undefined with zero in addition', function() {
+    expect(parse('a + 22')()).toBe(22);
+    expect(parse('42 + a')()).toBe(42);
+  });
+
+  it('substitutes undefined with zero in subtraction', function() {
+    expect(parse('a - 22')()).toBe(-22);
+    expect(parse('42 - a')()).toBe(42);
+  });
+
+  it('parses relational operators', function() {
+    expect(parse('1 < 2')()).toBe(true);
+    expect(parse('1 > 2')()).toBe(false);
+    expect(parse('1 <= 2')()).toBe(true);
+    expect(parse('2 <= 2')()).toBe(true);
+    expect(parse('1 >= 2')()).toBe(false);
+    expect(parse('2 >= 2')()).toBe(true);
+  });
+
+  it('parses equality operators', function() {
+    expect(parse('42 == 42')()).toBe(true);
+    expect(parse('42 == "42"')()).toBe(true);
+    expect(parse('42 != 42')()).toBe(false);
+    expect(parse('42 === 42')()).toBe(true);
+    expect(parse('42 === "42"')()).toBe(false);
+    expect(parse('42 !== 42')()).toBe(false);
+  });
+
+  it('parses relationals on a higher precedence than equality', function() {
+    expect(parse('2 == "2" > 2 === "2"')()).toBe(false);
+  });
+
+  it('parses additives on a higher precedence than relationals', function() {
+    expect(parse('2 + 3 < 6 - 2')()).toBe(false);
+  });
+
 });
