@@ -18,7 +18,9 @@ var OPERATORS = {
   '<': true,
   '>': true,
   '<=': true,
-  '>=': true
+  '>=': true,
+  '&&': true,
+  '||': true
 };
 
 function ensureSafeMemberName(name) {
@@ -76,7 +78,7 @@ Lexer.prototype.lex = function(text) {
       this.readNumber();
     } else if (this.is('\'"')) {
       this.readString(this.ch);
-    } else if (this.is('[],{}:.()')) {
+    } else if (this.is('[],{}:.()?;')) {
       this.tokens.push({
         text: this.ch
       });
@@ -239,17 +241,31 @@ AST.CallExpression = 'CallExpression';
 AST.AssignmentExpression = 'AssignmentExpression';
 AST.UnaryExpression = 'UnaryExpression';
 AST.BinaryExpression = 'BinaryExpression';
+AST.LogicalExpression = 'LogicalExpression';
+AST.ConditionalExpression = 'ConditionalExpression';
 
 AST.prototype.ast = function(text) {
   this.tokens = this.lexer.lex(text);
   return this.program();
 };
 AST.prototype.program = function() {
+  var body = [];
+  while (true) {
+    if (this.tokens.length) {
+      body.push(this.assignment());
+    }
+    if (!this.expect(';')) {
+      return {type: AST.Program, body: body};
+    }
+  }
   return {type: AST.Program, body: this.assignment()};
 };
 AST.prototype.primary = function() {
   var primary;
-  if (this.expect('[')) {
+  if (this.expect('(')) {
+    primary = this.assignment();
+    this.consume(')');
+  } else if (this.expect('[')) {
     primary = this.arrayDeclaration();
   } else if (this.expect('{')) {
     primary = this.object();
@@ -395,6 +411,48 @@ AST.prototype.relational = function() {
   }
   return left;
 };
+AST.prototype.logicalOR = function() {
+  var left = this.logicalAND();
+  var token;
+  while ((token = this.expect('||'))) {
+    left = {
+      type: AST.LogicalExpression,
+      left: left,
+      operator: token.text,
+      right: this.logicalAND()
+    };
+  }
+  return left;
+};
+AST.prototype.logicalAND = function() {
+  var left = this.equality();
+  var token;
+  while ((token = this.expect('&&'))) {
+    left = {
+      type: AST.LogicalExpression,
+      left: left,
+      operator: token.text,
+      right: this.equality()
+    };
+  }
+  return left;
+};
+AST.prototype.ternary = function() {
+  var test = this.logicalOR();
+  if (this.expect('?')) {
+    var consequent = this.assignment();
+    if (this.consume(':')) {
+      var alternate = this.assignment();
+      return {
+        type: AST.ConditionalExpression,
+        test: test,
+        consequent: consequent,
+        alternate: alternate
+      };
+    }
+  }
+  return test;
+};
 AST.prototype.peek = function(e1, e2, e3, e4) {
   if (this.tokens.length > 0) {
     var text = this.tokens[0].text;
@@ -428,9 +486,9 @@ AST.prototype.constants = {
   '$locals':  {type: AST.LocalsExpression}
 };
 AST.prototype.assignment = function() {
-  var left = this.equality();
+  var left = this.ternary();
   if (this.expect('=')) {
-    var right = this.equality();
+    var right = this.ternary();
     return {type: AST.AssignmentExpression, left: left, right: right};
   }
   return left;
@@ -467,7 +525,10 @@ ASTCompiler.prototype.recurse = function(ast, context, create) {
   var intoId;
   switch (ast.type) {
   case AST.Program:
-    this.state.body.push('return ', this.recurse(ast.body), ';');
+    _.forEach(_.initial(ast.body), _.bind(function(stmt) {
+      this.state.body.push(this.recurse(stmt), ';');
+    }, this));
+    this.state.body.push('return ', this.recurse(_.last(ast.body)), ';');
     break;
   case AST.Literal:
     return this.escape(ast.value);
@@ -584,6 +645,21 @@ ASTCompiler.prototype.recurse = function(ast, context, create) {
          ast.operator +
            '(' + this.recurse(ast.right) + ')';
      }
+   case AST.LogicalExpression:
+     intoId = this.nextId();
+     this.state.body.push(this.assign(intoId, this.recurse(ast.left)));
+     this.if_(ast.operator === '&&' ? intoId: this.not(intoId),
+              this.assign(intoId, this.recurse(ast.right)));
+     return intoId;
+   case AST.ConditionalExpression:
+     intoId = this.nextId();
+     var testId = this.nextId();
+     this.state.body.push(this.assign(testId, this.recurse(ast.test)));
+     this.if_(testId,
+             this.assign(intoId, this.recurse(ast.consequent)));
+     this.if_(this.not(testId),
+              this.assign(intoId, this.recurse(ast.alternate)));
+     return intoId;
    break;
   }
 };
