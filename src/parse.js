@@ -457,7 +457,7 @@ AST.prototype.ternary = function() {
 };
 AST.prototype.filter = function() {
   var left = this.assignment();
-  if (this.expect('|')) {
+  while (this.expect('|')) {
     left = {
       type: AST.CallExpression,
       callee: this.identifier(),
@@ -718,9 +718,11 @@ ASTCompiler.prototype.if_ = function(test, consequent) {
 ASTCompiler.prototype.assign = function(id, value) {
   return id + '=' + value + ';';
 };
-ASTCompiler.prototype.nextId = function() {
+ASTCompiler.prototype.nextId = function(skip) {
   var id = 'v' + (this.state.nextId++);
-  this.state.vars.push(id);
+  if (!skip) {
+    this.state.vars.push(id);
+  }
   return id;
 };
 ASTCompiler.prototype.not = function(e) {
@@ -745,9 +747,8 @@ ASTCompiler.prototype.ifDefined = function(value, defaultValue) {
   return 'ifDefined(' + value + ',' + this.escape(defaultValue) + ')';
 };
 ASTCompiler.prototype.filter = function(name) {
-  var filterId = this.nextId();
   if (!this.state.filters.hasOwnProperty(name)) {
-    this.state.filters[name] = this.nextId();
+    this.state.filters[name] = this.nextId(true);
   }
   return this.state.filters[name];
 };
@@ -755,10 +756,11 @@ ASTCompiler.prototype.filterPrefix = function() {
   if (_.isEmpty(this.state.filters)) {
     return '';
   } else {
-    var parts = [];
-    // TODO: leftoff here, page 318, adding the more advanced parts stuff
-
+  var parts = _.map(this.state.filters, _.bind(function(varName, filterName) {
+    return varName + '=' + 'filter(' + this.escape(filterName) + ')';
+  }, this));
     return 'var ' + parts.join(',') + ';';
+  }
 };
 
 function Parser(lexer) {

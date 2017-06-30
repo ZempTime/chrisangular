@@ -612,7 +612,7 @@ describe('parse', function() {
   it('parses parentheses altering precedence order', function() {
     expect(parse('21 * (3 - 1)')()).toBe(42);
     expect(parse('false && (true || true)')()).toBe(false);
-    expect(parse('-((a % 2) === 0 ? 1 : 2)')({a: 42})).toBe(-1)
+    expect(parse('-((a % 2) === 0 ? 1 : 2)')({a: 42})).toBe(-1);
   });
 
   it('parses several statements', function() {
@@ -634,6 +634,41 @@ describe('parse', function() {
     });
     var fn = parse('aString | upcase');
     expect(fn({aString: 'Hello'})).toEqual('HELLO');
+  });
+
+  it('can parse filter chain expressions', function() {
+    register('upcase', function() {
+      return function(s) {
+        return s.toUpperCase();
+      };
+    });
+    register('exclamate', function() {
+      return function(s) {
+        return s + '!';
+      };
+    });
+    var fn = parse('"hello" | upcase | exclamate');
+    expect(fn()).toEqual('HELLO!');
+  });
+
+  it('can pass several arguments to filters', function() {
+    register('repeat', function() {
+      return function(s, times) {
+        return _.repeat(s, times);
+      };
+    });
+    var fn = parse('"hello" | repeat:3');
+    expect(fn()).toEqual('hellohellohello');
+  });
+
+  it('can pass several additional arguments to filters', function() {
+    register('surround', function() {
+      return function(s, left, right) {
+        return left + s + right;
+      };
+    });
+    var fn = parse('"hello" | surround:"*":"!"');
+    expect(fn()).toEqual('*hello!');
   });
 
 });

@@ -7,3 +7,4 @@
 * 5/10/17 - end of p218, midway array parsing
 * 5/13/17 - end of 239, start of locals
 * 5/15/17 - end of 261, start @ ensuring safety in member access
+* 6/30/17 - start of p320
