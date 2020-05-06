@@ -18,10 +18,14 @@
   },
   "scripts": {
     "lint": "jshint src",
-    "test": "karma start"
+    "test": "karma start",
+    "snyk-protect": "snyk protect",
+    "prepare": "yarn run snyk-protect"
   },
   "dependencies": {
-    "jquery": "^3.2.1",
-    "lodash": "4"
-  }
+    "jquery": "^3.5.0",
+    "lodash": "4",
+    "snyk": "^1.319.1"
+  },
+  "snyk": true
 }
